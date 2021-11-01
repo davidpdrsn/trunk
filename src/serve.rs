@@ -7,8 +7,8 @@ use axum::extract::{
     ws::{WebSocket, WebSocketUpgrade},
     Extension,
 };
-use axum::handler::{get, Handler};
-use axum::routing::{BoxRoute, Router};
+use axum::handler::Handler;
+use axum::routing::{get, Router};
 use axum::AddExtensionLayer;
 use hyper::{Body, Request, Response, Server, StatusCode};
 use hyper_staticfile::{resolve_path, ResolveResult, ResponseBuilder};
@@ -175,7 +175,7 @@ async fn serve_dist(req: Request<Body>) -> ServerResult<Response<Body>> {
 
 /// Build the Trunk router, this includes that static file server, the WebSocket server,
 /// (for autoreload & HMR in the future), as well as any user-defined proxies.
-fn router(state: Arc<State>, cfg: Arc<RtcServe>) -> Router<BoxRoute> {
+fn router(state: Arc<State>, cfg: Arc<RtcServe>) -> Router {
     // Build static file server, middleware, error handler & WS route for reloads.
     let mut router = Router::new()
         .nest(&state.public_url, get(serve_dist.layer(TraceLayer::new_for_http())))
@@ -185,8 +185,7 @@ fn router(state: Arc<State>, cfg: Arc<RtcServe>) -> Router<BoxRoute> {
                 ws.on_upgrade(|socket| async move { handle_ws(socket, state.0).await })
             }),
         )
-        .layer(AddExtensionLayer::new(state.clone()))
-        .boxed();
+        .layer(AddExtensionLayer::new(state.clone()));
 
     tracing::info!("{} serving static assets at -> {}", SERVER, state.public_url.as_str());
 

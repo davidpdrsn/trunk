@@ -3,8 +3,9 @@ use std::sync::Arc;
 use anyhow::Context;
 use axum::extract::ws::{Message as MsgAxm, WebSocket, WebSocketUpgrade};
 use axum::{
-    handler::{any, get, Handler},
-    routing::{BoxRoute, Router},
+    handler::Handler,
+    routing::Router,
+    routing::{any, get},
     AddExtensionLayer,
 };
 use futures::prelude::*;
@@ -37,15 +38,13 @@ impl ProxyHandlerHttp {
     }
 
     /// Build the sub-router for this proxy.
-    pub fn register(self: Arc<Self>, router: Router<BoxRoute>) -> Router<BoxRoute> {
-        router
-            .nest(
-                self.path(),
-                any(Self::proxy_http_request
-                    .layer(AddExtensionLayer::new(self.clone()))
-                    .layer(TraceLayer::new_for_http())),
-            )
-            .boxed()
+    pub fn register(self: Arc<Self>, router: Router) -> Router {
+        router.nest(
+            self.path(),
+            any(Self::proxy_http_request
+                .layer(AddExtensionLayer::new(self.clone()))
+                .layer(TraceLayer::new_for_http())),
+        )
     }
 
     /// The path which this proxy backend listens at.
@@ -133,14 +132,12 @@ impl ProxyHandlerWebSocket {
     }
 
     /// Build the sub-router for this proxy.
-    pub fn register(self: Arc<Self>, router: Router<BoxRoute>) -> Router<BoxRoute> {
+    pub fn register(self: Arc<Self>, router: Router) -> Router {
         let proxy = self.clone();
-        router
-            .route(
-                self.path(),
-                get(|ws: WebSocketUpgrade| async move { ws.on_upgrade(|socket| async move { proxy.clone().proxy_ws_request(socket).await }) }),
-            )
-            .boxed()
+        router.route(
+            self.path(),
+            get(|ws: WebSocketUpgrade| async move { ws.on_upgrade(|socket| async move { proxy.clone().proxy_ws_request(socket).await }) }),
+        )
     }
 
     /// The path which this proxy backend listens at.
